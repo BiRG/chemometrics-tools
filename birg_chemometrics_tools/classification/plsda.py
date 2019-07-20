@@ -22,7 +22,15 @@ class PLSDiscriminator(BaseEstimator, ClassifierMixin):
     """
     def __init__(self, estimator=None):
         self.estimator = estimator if estimator is not None else PLSRegression()
-        self.binarizer_ = None
+        self.binarizer_ = LabelBinarizer(-1, 1)
+
+    @property
+    def n_components(self):
+        return self.estimator.n_components
+
+    @n_components.setter
+    def n_components(self, other):
+        self.estimator.n_components = other
 
     def fit(self, X, Y, pos_label=None):
         """Fit model to data.
@@ -41,7 +49,7 @@ class PLSDiscriminator(BaseEstimator, ClassifierMixin):
             Which value in the target represents the "positive" class. If none, the order of the labels will be
             determined by the binarizer.
         """
-        self.binarizer_ = LabelBinarizer(-1, 1).fit(Y)
+        self.binarizer_.fit(Y)
         if pos_label is not None:
             if self.binarizer_.classes_[1] != pos_label:
                 self.binarizer_.classes_ = np.flip(self.binarizer_.classes_)
@@ -69,7 +77,9 @@ class PLSDiscriminator(BaseEstimator, ClassifierMixin):
 
         Parameters
         ----------
-        X : array-like, shape (n_samples, n_features)
+        X : array-like, shape = [n_samples, n_features]
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of predictors.
 
         Returns
         -------
@@ -87,6 +97,32 @@ class PLSDiscriminator(BaseEstimator, ClassifierMixin):
         return 0.5 * (np.clip(self.estimator.predict(X), -1, 1) + 1)
 
     def r2d_score(self, X, y, sample_weight=None):
+        """Compute an adjusted R-squared score
+        This score disregards prediction errors beyond the (-1, 1) class labels.
+        E.g., responses values of -1.1 and 1.1 are treated as responses of 1 and -1, respectively.
+
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of predictors.
+
+        y : array-like of shape = (n_samples, 1)
+            Ground truth (correct) target values.
+
+        sample_weight : array-like of shape = (n_samples), optional
+            Sample weights.
+
+        Returns
+        -------
+        z : float
+            The R^2D (or Q^2D)score
+
+        References
+        ----------
+        J. A. Westerhuis, E. J. J. van Velzen, H. C. J. Hoefsloot, A. K. Smilde. Discriminant Q^2 (DQ^2) for improved
+        discrimination in PLSDA models. Metabolomics 4 (4) 2008.
+        """
         check_is_fitted(self.estimator, 'x_mean_')
         y_pred = np.clip(self.estimator.predict(X), -1, 1)
         return r2_score(y, y_pred, sample_weight)
