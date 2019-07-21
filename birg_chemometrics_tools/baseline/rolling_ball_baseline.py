@@ -31,9 +31,10 @@ class RollingBallBaseline(BaseEstimator, TransformerMixin):
     Kristian Hovde Liland and Bjrn-Helge Mevik (2011). baseline: Baseline Correction of Spectra.
     R package version 1.0-1. http://CRAN.R-project.org/package=baseline
     """
-    def __init__(self, min_max_window, smoothing_window):
+    def __init__(self, min_max_window, smoothing_window, clip=False):
         self.min_max_window = min_max_window
         self.smoothing_window = smoothing_window
+        self.clip = clip
         self.baseline_ = None
 
     def _fit_one_baseline(self, x):
@@ -116,6 +117,9 @@ class RollingBallBaseline(BaseEstimator, TransformerMixin):
             v -= np.sum(T2[u1:u2])
             baseline[i] = v / (m - u2)
             u1 = u2
+
+        if self.clip:
+            baseline = np.where(baseline > x, x, baseline)
 
         return baseline
 
