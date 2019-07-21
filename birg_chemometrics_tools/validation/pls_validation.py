@@ -3,7 +3,7 @@ from sklearn.cross_decomposition import PLSRegression
 from sklearn.model_selection import KFold, StratifiedKFold, cross_val_score
 from sklearn.utils import check_array
 from sklearn.utils.multiclass import type_of_target
-from ..classification import PLSDiscriminator
+from ..classification import PLSDiscriminantAnalysis
 
 
 class PLSValidator:
@@ -13,7 +13,7 @@ class PLSValidator:
     def determine_n_components(self, X, Y, min_n_components=2, cv=None, scoring=None,
                                n_jobs=None, verbose=0, pre_dispatch='2*n_jobs'):
         def _r2d_score(estimator, X, Y):
-            return estimator.r2d_score(X, Y) if isinstance(estimator, PLSDiscriminator) else estimator.score(X, Y)
+            return estimator.r2d_score(X, Y) if isinstance(estimator, PLSDiscriminantAnalysis) else estimator.score(X, Y)
 
         X = check_array(X)
         if cv is None:

@@ -1,1 +1,1 @@
-from .plsda import PLSDiscriminator
+from .plsda import PLSDiscriminantAnalysis

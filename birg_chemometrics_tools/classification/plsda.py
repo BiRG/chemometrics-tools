@@ -6,7 +6,7 @@ from sklearn.utils.validation import check_is_fitted
 import numpy as np
 
 
-class PLSDiscriminator(BaseEstimator, ClassifierMixin):
+class PLSDiscriminantAnalysis(BaseEstimator, ClassifierMixin):
     """A wrapper for sklearn.cross_decomposition PLSRegression to create a binary PLS-DA classifier.
 
     Parameters
