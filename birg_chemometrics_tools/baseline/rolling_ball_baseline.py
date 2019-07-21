@@ -135,6 +135,7 @@ class RollingBallBaseline(BaseEstimator, TransformerMixin):
         X = check_array(X)
         baselines = [self._fit_one_baseline(np.ravel(x)) for x in np.split(X, np.size(X, axis), axis)]
         self.baseline_ = np.stack(baselines, axis)
+        return self
 
     def transform(self, X):
         """Correct a collection of spectra with the fit baselines
