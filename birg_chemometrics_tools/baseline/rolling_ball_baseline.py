@@ -89,8 +89,6 @@ class RollingBallBaseline(BaseEstimator, TransformerMixin):
             T2[i] = T2[i-1] if np.max(T1[u1:u2]) < T2[i-1] else np.max(T1[u2:])
             u1 = u2
 
-        np.savetxt('C:/Users/Daniel Foose/T1.csv', T1, delimiter=',')
-        np.savetxt('C:/Users/Daniel Foose/T2.csv', T2, delimiter=',')
         # smoothing
         u1 = math.ceil(ws/2) - 1
 
