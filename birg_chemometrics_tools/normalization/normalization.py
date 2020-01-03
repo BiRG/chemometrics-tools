@@ -72,7 +72,7 @@ class PeakNormalizer(BaseEstimator, TransformerMixin):
     -----
     Unlike with other sklearn transformers, this transforms "y" rather than "X"
     """
-    def __init__(self, abscissa_min, abscissa_max, copy):
+    def __init__(self, abscissa_min, abscissa_max, copy=True):
         self.abscissa_min = abscissa_min
         self.abscissa_max = abscissa_max
         self.copy = copy
@@ -118,7 +118,7 @@ class PeakNormalizer(BaseEstimator, TransformerMixin):
 
 
 class ProbabilisticQuotientNormalizer(BaseEstimator, TransformerMixin):
-    def __init__(self, reference_type = 'median'):
+    def __init__(self, reference_type='median'):
         self.reference_type = reference_type
         self.reference_spectrum = None
 
