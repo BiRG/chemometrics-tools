@@ -5,7 +5,7 @@ with open('README.md', 'r') as fh:
 
 setuptools.setup(
     name='birg_chemometrics_tools',
-    version='20.01',
+    version='20.1',
     author='BiRG @ Wright State University',
     author_email='foose.3@wright.edu',
     description='Chemometric Tools for NMR Metabolomics',
