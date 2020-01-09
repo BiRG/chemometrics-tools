@@ -149,30 +149,36 @@ class PeakNormalizer(BaseEstimator, TransformerMixin):
 
 
 class ProbabilisticQuotientNormalizer(BaseEstimator, TransformerMixin):
-    def __init__(self, reference_type='median'):
-        self.reference_type = reference_type
-        self.reference_spectrum = None
+    def __init__(self, aggregate='median'):
+        self.aggregate = aggregate
+        self.reference_spectrum_ = None
+        if callable(aggregate):
+            self.aggregate_function = aggregate
+        elif aggregate == 'mean':
+            self.aggregate_function = np.mean
+        elif aggregate == 'median':
+            self.aggregate_function = np.median
+        else:
+            raise ValueError(f'Cannot interpret aggregate function {aggregate}. Acceptable aggregate functions are '
+                             f'\'mean\' and \'median\', or you may pass a callable with "axis" as a kwarg such as '
+                             f'NumPy aggregate functions.')
 
     def fit(self, X):
         """
         here X is the QC data
         """
         X = check_array(X)
-        if self.reference_type == 'mean':
-            self.reference_spectrum = np.mean(X, axis=0)
-        elif self.reference_type == 'median':
-            self.reference_spectrum = np.median(X, axis=0)
-        else:
-            raise ValueError(f'Cannot calculate reference spectrum with reference_type "{self.reference_type}"')
+        self.reference_spectrum_ = self.aggregate_function(X, axis=0)
+        return self
 
     def quotients(self, X):
         """determine the quotients"""
-        return X / self.reference_spectrum
+        return X / self.reference_spectrum_
 
     def transform(self, X, copy=True):
         X = check_array(X, copy=copy)
-        X = X / np.median(X / self.reference_spectrum)
-        return X / np.median(X / self.reference_spectrum)
+        X = X / np.median(X / self.reference_spectrum_)
+        return X / np.median(X / self.reference_spectrum_)
 
 
 class HistogramNormalizer(BaseEstimator, TransformerMixin):
@@ -202,6 +208,7 @@ class HistogramNormalizer(BaseEstimator, TransformerMixin):
         else:
             raise ValueError('noise_ind must be integer or iterable.')
         """
+        self.aggregate = aggregate
         if callable(aggregate):
             self.aggregate_function = aggregate
         elif aggregate == 'mean':
