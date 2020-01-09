@@ -1,6 +1,37 @@
+"""
+The HistogramNormalization class contains source code from scikit-image
+
+Copyright (C) 2019, the scikit-image team
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+ 1. Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+ 2. Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in
+    the documentation and/or other materials provided with the
+    distribution.
+ 3. Neither the name of skimage nor the names of its contributors may be
+    used to endorse or promote products derived from this software without
+    specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+"""
 from typing import Iterable
 
-from scipy.optimize import minimize_scalar
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.preprocessing import Normalizer
 from sklearn.utils import check_array
@@ -145,20 +176,14 @@ class ProbabilisticQuotientNormalizer(BaseEstimator, TransformerMixin):
 
 
 class HistogramNormalizer(BaseEstimator, TransformerMixin):
-    """Perform Torgrip's histogram normalization on spectra
+    """Perform histogram normalization on spectra. Inspired by Horgrip, but using an estimate of the cumulative
+     distribution function as in scikit-image.
 
     Parameters
     ----------
-    n_bins: int
-        The number of histogram bins to use.
-
-    n_std: int
-        The number of standard deviations to set as the threshold for inclusion in the histogram.
-        Any points below n_std * noise_std_ will be ignored.
-
-    noise_ind: int or array/list of int
-        If an integer, the number of points at the beginning of the spectra to consider noise.
-        If an array or list, the indices to use as noise. This is applied on a row by row basis.
+    aggregate: str or function
+        An aggregate function to use. 'median' and 'mean' are acceptable, as is a callable that has "axis" as a kwarg,
+        like an NumPy aggregate function
 
 
     References
@@ -167,8 +192,8 @@ class HistogramNormalizer(BaseEstimator, TransformerMixin):
     DOI: 10.1007/s11306-007-0102-2
 
     """
-    def __init__(self, n_bins=60, n_std=5, noise_ind=35):
-        self.n_bins = n_bins
+    def __init__(self, aggregate='median'):
+        """
         self.n_std = n_std
         if isinstance(noise_ind, int):
             self.noise_ind = np.array([i for i in range(0, noise_ind)])
@@ -176,51 +201,39 @@ class HistogramNormalizer(BaseEstimator, TransformerMixin):
             self.noise_ind = noise_ind
         else:
             raise ValueError('noise_ind must be integer or iterable.')
+        """
+        if callable(aggregate):
+            self.aggregate_function = aggregate
+        elif aggregate == 'mean':
+            self.aggregate_function = np.mean
+        elif aggregate == 'median':
+            self.aggregate_function = np.median
+        else:
+            raise ValueError(f'Cannot interpret aggregate function {aggregate}. Acceptable aggregate functions are '
+                             f'\'mean\' and \'median\', or you may pass a callable with "axis" as a kwarg such as '
+                             f'NumPy aggregate functions.')
+        self.reference_spectrum_ = None
+
+    @staticmethod
+    def _match_cdf(spectrum, reference):
+        spectrum_values, spectrum_unique_indices, spectrum_counts = np.unique(spectrum.ravel(),
+                                                                              return_inverse=True,
+                                                                              return_counts=True)
+        reference_values, reference_counts = np.unique(reference.ravel(), return_counts=True)
+
+        spectrum_quantiles = np.cumsum(spectrum_counts) / spectrum.size
+        reference_quantiles = np.cumsum(reference_counts) / reference.size
+
+        interp_a_values = np.interp(spectrum_quantiles, reference_quantiles, reference_values)
+        return interp_a_values[spectrum_unique_indices].reshape(spectrum.shape)
 
     def fit(self, X):
+        # X here is the reference spectrum, which we will store
+        X = check_array(X)
+        self.reference_spectrum_ = self.aggregate_function(X, axis=0)
         return self
 
-    def transform(self, X, target_spectrum=None):
-        X = check_array(X, copy=True)
-        Z = np.log2(X)
-        target_spectrum = np.log2(target_spectrum) if target_spectrum is not None else np.nanmedian(Z, axis=0)
-
-        noise_std = X[:, self.noise_ind].std()
-        bin_edges = np.histogram_bin_edges(Z[(X < noise_std) & np.isfinite(Z)], self.n_bins)
-        target_histogram, _ = np.histogram(target_spectrum, bin_edges)
-
-        def hist_err(mult, z_vals):
-            test_hist, _ = np.histogram(mult * z_vals, bin_edges)
-            return np.sum((target_histogram - test_hist) ** 2)
-
-        def optimize_spectrum(X_i, Z_i):
-            hist, _ = np.histogram(Z_i[X_i < noise_std], bin_edges)
-            # initial search bounds are
-            low_b = np.min(target_histogram) / np.max(target_histogram)
-            up_b = np.max(target_histogram) / (np.min(target_histogram) or 1.0)
-            n_steps = np.ceil(np.log2(up_b/low_b)).astype(int)
-            bound_mults = [low_b * (2 ** i) for i in range(0, n_steps)]
-            errs = np.array([hist_err(bound_mult, Z_i) for bound_mult in bound_mults])
-            # indices of two elements that bound first interval of minimum error
-            try:
-                min_err_idx = np.where(errs == np.min(errs))[0].item()
-            except:
-                min_err_idx = 0
-            try:
-                low_b_idx = np.where(errs[:min_err_idx] > errs[min_err_idx])[-1].item()
-            except ValueError:  # throws when np.where returns empty
-                low_b_idx = 0
-            try:
-                up_b_idx = np.where(errs[min_err_idx+1:] > errs[min_err_idx])[0].item()
-            except ValueError:
-                up_b_idx = len(errs) - 1
-            up_b = bound_mults[up_b_idx] if bound_mults[up_b_idx] < up_b else up_b
-            low_b = bound_mults[low_b_idx] if bound_mults[low_b_idx] > low_b else low_b
-            mult = minimize_scalar(hist_err, bounds=(low_b, up_b), args=[Z_i], method='bounded').x
-            print(f'mult: {mult}')
-            return X_i * mult
-
-        return np.row_stack([
-            optimize_spectrum(X_i, Z_i)
-            for X_i, Z_i in zip(np.vsplit(X, X.shape[0]), np.vsplit(Z, X.shape[0]))
-        ])
+    def transform(self, X):
+        X = check_array(X)
+        return np.vstack([self._match_cdf(spectrum, self.reference_spectrum_)
+                          for spectrum in np.vsplit(X, X.shape[0])])
